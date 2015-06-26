@@ -65,14 +65,18 @@
   // the best candidate is very-very-likely the correct one
 
 */
-
+try{
 (function (window) {
   'use strict';
   var document = window.document,
     Image = window.Image,
-    localStorage = window.localStorage,
     globalStorage = window.globalStorage,
     swfobject = window.swfobject;
+
+  try{
+    var localStore = window.localStorage
+  }catch(ex){}
+  
   try {
     var sessionStorage = window.sessionStorage;
   } catch (e) { }
@@ -104,6 +108,15 @@
     }
   }
 
+ function idb() {
+    if ('indexedDB' in window) {
+        return true
+    } else if (window.indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB) {
+        return true
+    } else {
+        return false
+    }
+  } 
 
   // necessary for flash to communicate with js...
   // please implement a better way
@@ -134,11 +147,13 @@
   var defaultOptionMap = {
     history: true, // CSS history knocking or not .. can be network intensive
     java: true, // Java applet on/off... may prompt users for permission to run.
-    tests: 10,  //1000 what is it, actually?
-    baseurl: '', // base url for php, flash and silverlight assets
+    tests: 10,  // 1000 what is it, actually?
     silverlight: true, // you might want to turn it off https://github.com/samyk/evercookie/issues/45
     domain: '.' + window.location.host.replace(/:\d+/, ''), // Get current domain
-    authPath: '/evercookie_auth.php', // set to false to disable Basic Authentication cache
+    baseurl: '', // base url for php, flash and silverlight assets
+    asseturi: '/assets', // assets = .fla, .jar, etc
+    phpuri: '/php', // php file path or route
+    authPath: false, //'/evercookie_auth.php', // set to false to disable Basic Authentication cache
     pngCookieName: 'evercookie_png',
     pngPath: '/evercookie_png.php',
     etagCookieName: 'evercookie_etag',
@@ -146,15 +161,19 @@
     cacheCookieName: 'evercookie_cache',
     cachePath: '/evercookie_cache.php'
   };
+  
   var _baseKeyStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
   /**
    * @class Evercookie
    * @param {Object} options
    * @param {Boolean} options.history CSS history knocking or not .. can be network intensive
    * @param {Boolean} options.java Java applet on/off... may prompt users for permission to run.
-   * @param {Boolean} options.silverlight you might want to turn it off https://github.com/samyk/evercookie/issues/45
    * @param {Number} options.tests
-   * @param {String} options.baseurl base url for php, flash and silverlight assets
+   * @param {Boolean} options.silverlight you might want to turn it off https://github.com/samyk/evercookie/issues/45
+   * @param {String} options.domain (eg: www.sitename.com use .sitename.com)
+   * @param {String} options.baseurl base url (eg: www.sitename.com/demo use /demo)
+   * @param {String} options.asseturi asset path (eg: www.sitename.com/assets use /assets)
+   * @param {String} options.phpuri php path/route (eg: www.sitename.com/php use /php)
    * @param {String|Function} options.domain as a string, domain for cookie, as a function, accept window object and return domain string
    * @param {String} options.pngCookieName
    * @param {String} options.pngPath
@@ -181,6 +200,8 @@
       _ec_java =  opts.java,
       _ec_tests = opts.tests,
       _ec_baseurl = opts.baseurl,
+      _ec_asseturi = opts.asseturi,
+      _ec_phpuri = opts.phpuri,
       _ec_domain = opts.domain;
 
     // private property
@@ -205,6 +226,7 @@
       // first run
       if (i === 0) {
         self.evercookie_database_storage(name, value);
+        self.evercookie_indexdb_storage(name, value);
         self.evercookie_png(name, value);
         self.evercookie_etag(name, value);
         self.evercookie_cache(name, value);
@@ -249,6 +271,7 @@
           (
             // we support local db and haven't read data in yet
             (window.openDatabase && typeof self._ec.dbData === "undefined") ||
+            (idb() && (typeof self._ec.idbData === "undefined" || self._ec.idbData === "")) ||
             (typeof _global_lso === "undefined") ||
             (typeof self._ec.etagData === "undefined") ||
             (typeof self._ec.cacheData === "undefined") ||
@@ -297,7 +320,7 @@
           }
 
           // reset cookie everywhere
-          if (dont_reset === undefined || dont_reset !== 1) {
+          if (candidate !== undefined && (dont_reset === undefined || dont_reset !== 1)) {
             self.set(name, candidate);
           }
           if (typeof cb === "function") {
@@ -320,14 +343,16 @@
     this.evercookie_userdata = function (name, value) {
       try {
         var elm = this.createElem("div", "userdata_el", 1);
-        elm.style.behavior = "url(#default#userData)";
+        if (elm.addBehavior) {
+          elm.style.behavior = "url(#default#userData)";
 
-        if (value !== undefined) {
-          elm.setAttribute(name, value);
-          elm.save(name);
-        } else {
-          elm.load(name);
-          return elm.getAttribute(name);
+          if (value !== undefined) {
+            elm.setAttribute(name, value);
+            elm.save(name);
+          } else {
+            elm.load(name);
+            return elm.getAttribute(name);
+          }
         }
       } catch (e) {}
     };
@@ -371,9 +396,12 @@
     this.evercookie_cache = function (name, value) {
       if (value !== undefined) {
         // make sure we have evercookie session defined first
-        document.cookie = opts.cacheCookieName + "=" + value + "; domain=" + _ec_domain;
-        // {{opts.cachePath}} handles caching
-        newImage(_ec_baseurl + opts.cachePath + "?name=" + name);
+        document.cookie = opts.cacheCookieName + "=" + value + "; path=/; domain=" + _ec_domain;
+        // {{ajax request to opts.cachePath}} handles caching
+        self.ajax({
+          url: _ec_baseurl + _ec_phpuri + opts.cachePath + "?name=" + name + "&cookie=" + opts.cacheCookieName,
+          success: function (data) {}
+        });
       } else {
         // interestingly enough, we want to erase our evercookie
         // http cookie so the php will force a cached response
@@ -382,7 +410,7 @@
         document.cookie = opts.cacheCookieName + "=; expires=Mon, 20 Sep 2010 00:00:00 UTC; path=/; domain=" + _ec_domain;
 
         self.ajax({
-          url: _ec_baseurl + opts.cachePath + "?name=" + name,
+          url: _ec_baseurl + _ec_phpuri + opts.cachePath + "?name=" + name + "&cookie=" + opts.cacheCookieName,
           success: function (data) {
             // put our cookie back
             document.cookie = opts.cacheCookieName + "=" + origvalue + "; expires=Tue, 31 Dec 2030 00:00:00 UTC; path=/; domain=" + _ec_domain;
@@ -395,11 +423,11 @@
     this.evercookie_auth = function (name, value) {
       if (value !== undefined) {
         // {{opts.authPath}} handles Basic Access Authentication
-        newImage('//' + value + '@' + location.host + _ec_baseurl + opts.authPath + "?name=" + name);
+        newImage('//' + value + '@' + location.host + _ec_baseurl + _ec_phpuri + opts.authPath + "?name=" + name);
       }
       else {
         self.ajax({
-          url: _ec_baseurl + opts.authPath + "?name=" + name,
+          url: _ec_baseurl + _ec_phpuri + opts.authPath + "?name=" + name,
           success: function (data) {
             self._ec.authData = data;
           }
@@ -410,9 +438,12 @@
     this.evercookie_etag = function (name, value) {
       if (value !== undefined) {
         // make sure we have evercookie session defined first
-        document.cookie = opts.etagCookieName + "=" + value + "; domain=" + _ec_domain;
-        // {{opts.etagPath}} handles etagging
-        newImage(_ec_baseurl + opts.etagPath + "?name=" + name);
+        document.cookie = opts.etagCookieName + "=" + value + "; path=/; domain=" + _ec_domain;
+        // {{ajax request to opts.etagPath}} handles etagging
+        self.ajax({
+          url: _ec_baseurl + _ec_phpuri + opts.etagPath + "?name=" + name + "&cookie=" + opts.etagCookieName,
+          success: function (data) {}
+        });
       } else {
         // interestingly enough, we want to erase our evercookie
         // http cookie so the php will force a cached response
@@ -421,7 +452,7 @@
         document.cookie = opts.etagCookieName + "=; expires=Mon, 20 Sep 2010 00:00:00 UTC; path=/; domain=" + _ec_domain;
 
         self.ajax({
-          url: _ec_baseurl + opts.etagPath + "?name=" + name,
+          url: _ec_baseurl + _ec_phpuri + opts.etagPath + "?name=" + name + "&cookie=" + opts.etagCookieName,
           success: function (data) {
             // put our cookie back
             document.cookie = opts.etagCookieName + "=" + origvalue + "; expires=Tue, 31 Dec 2030 00:00:00 UTC; path=/; domain=" + _ec_domain;
@@ -456,7 +487,7 @@
       if (typeof ecApplet === "undefined") {
         dtjava.embed({ 
         	id: "ecApplet",
-        	url: _ec_baseurl + "evercookie.jnlp", 
+        	url: _ec_baseurl + _ec_asseturi + "/evercookie.jnlp", 
         	width: "1px", 
         	height: "1px", 
         	placeholder: "ecAppletContainer"
@@ -498,7 +529,7 @@
       params.swliveconnect = "true";
       attributes.id        = "myswf";
       attributes.name      = "myswf";
-      swfobject.embedSWF(_ec_baseurl + "evercookie.swf", "swfcontainer", "1", "1", "9.0.0", false, flashvars, params, attributes);
+      swfobject.embedSWF(_ec_baseurl + _ec_asseturi + "/evercookie.swf", "swfcontainer", "1", "1", "9.0.0", false, flashvars, params, attributes);
     };
 
     this.evercookie_png = function (name, value) {
@@ -516,7 +547,7 @@
         img.style.position = "absolute";
         if (value !== undefined) {
           // make sure we have evercookie session defined first
-          document.cookie = opts.pngCookieName + "=" + value + "; domain=" + _ec_domain;
+          document.cookie = opts.pngCookieName + "=" + value + "; path=/; domain=" + _ec_domain;
         } else {
           self._ec.pngData = undefined;
           ctx = canvas.getContext("2d");
@@ -554,17 +585,17 @@
             }
           };
         }
-        img.src = _ec_baseurl + opts.pngPath + "?name=" + name;
+        img.src = _ec_baseurl + _ec_phpuri + opts.pngPath + "?name=" + name + "&cookie=" + opts.pngCookieName;
       }
     };
 
     this.evercookie_local_storage = function (name, value) {
       try {
-        if (localStorage) {
+        if (localStore) {
           if (value !== undefined) {
-            localStorage.setItem(name, value);
+            localStore.setItem(name, value);
           } else {
-            return localStorage.getItem(name);
+            return localStore.getItem(name);
           }
         }
       } catch (e) { }
@@ -602,6 +633,78 @@
         }
       } catch (e) { }
     };
+ 
+    this.evercookie_indexdb_storage = function(name, value) {
+    try {
+    if (!('indexedDB' in window)) {
+
+        indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+        IDBTransaction = window.IDBTransaction || window.webkitIDBTransaction || window.msIDBTransaction;
+        IDBKeyRange = window.IDBKeyRange || window.webkitIDBKeyRange || window.msIDBKeyRange;
+    }
+
+    if (indexedDB) {
+        var ver = 1;
+        //FF incognito mode restricts indexedb access
+        var request = indexedDB.open("idb_evercookie", ver);
+
+
+        request.onerror = function(e) { ;
+        }
+
+        request.onupgradeneeded = function(event) {
+            var db = event.target.result;
+
+            var store = db.createObjectStore("evercookie", {
+                keyPath: "name",
+                unique: false
+            })
+
+        }
+
+        if (value !== undefined) {
+
+
+            request.onsuccess = function(event) {
+                var idb = event.target.result;
+                if (idb.objectStoreNames.contains("evercookie")) {
+                    var tx = idb.transaction(["evercookie"], "readwrite");
+                    var objst = tx.objectStore("evercookie");
+                    var qr = objst.put({
+                        "name": name,
+                        "value": value
+                    })
+                } idb.close();
+            }
+
+        } else {
+
+            request.onsuccess = function(event) {
+
+                var idb = event.target.result;
+
+                if (!idb.objectStoreNames.contains("evercookie")) {
+
+                    self._ec.idbData = undefined;
+                } else {
+                    var tx = idb.transaction(["evercookie"]);
+                    var objst = tx.objectStore("evercookie");
+                    var qr = objst.get(name);
+
+                    qr.onsuccess = function(event) {
+                        if (qr.result === undefined) {
+                            self._ec.idbData = undefined
+                        } else {
+                            self._ec.idbData = qr.result.value;
+                        }
+                    }
+                }
+           idb.close();
+            }
+        }
+    }
+ } catch (e) {}
+};
 
     this.evercookie_session_storage = function (name, value) {
       try {
@@ -635,7 +738,7 @@
        * Ok. so, I tried doing this the proper dom way, but IE chokes on appending anything in object tags (including params), so this
        * is the best method I found. Someone really needs to find a less hack-ish way. I hate the look of this shit.
        */
-      var source = _ec_baseurl + "evercookie.xap",
+      var source = _ec_baseurl + _ec_asseturi + "/evercookie.xap",
         minver = "4.0.50401.0",
         initParam = "",
         html;
@@ -657,7 +760,15 @@
         'Get Microsoft Silverlight' +
         '</a>' +
       '</object>';
-      document.body.appendChild(html);
+      try{
+        if (typeof jQuery === 'undefined') {
+          document.body.appendChild(html);
+        } else {
+          $('body').append(html);
+        }
+      }catch(ex){
+      	
+      }
     };
 
     // public method for encoding
@@ -1000,6 +1111,9 @@
       /* add the link to the DOM and save the visible computed color */
       var color;
       if (document.defaultView) {
+        if (document.defaultView.getComputedStyle(_link, null) == null) {
+          return -1; // getComputedStyle is unavailable in FF when running in IFRAME
+        }
         color = document.defaultView.getComputedStyle(_link, null).getPropertyValue("color");
       } else {
         color = _link.currentStyle.color;
@@ -1031,3 +1145,4 @@
    */
   window.evercookie = window.Evercookie = Evercookie;
 }(window));
+}catch(ex){}

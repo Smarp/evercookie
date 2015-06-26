@@ -13,6 +13,8 @@ one is still intact.
 If the LSO mechanism is available, Evercookie may even propagate cookies
 between different browsers on the same client machine!
 
+By [Samy Kamkar](http://samy.pl), with awesome [contributions from others](https://github.com/samyk/evercookie/graphs/contributors)
+
 Browser Storage Mechanisms
 --------------------------
 
@@ -32,22 +34,26 @@ possible in order for Evercookie to be effective.
 - HTML5 [Global Storage](https://developer.mozilla.org/en/dom/storage#globalStorage)
 - HTML5 [Database Storage via SQLite](http://dev.w3.org/html5/webdatabase/)
 - HTML5 Canvas - Cookie values stored in RGB data of auto-generated, force-cached PNG images ([Backend server](#backend-server) required)
+- HTML5 [IndexedDB](http://www.w3.org/TR/IndexedDB/)
 - Java [JNLP PersistenceService](http://docs.oracle.com/javase/1.5.0/docs/guide/javaws/jnlp/index.html)
 - Java exploit [CVE-2013-0422](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2013-0422) - Attempts to escape the applet sandbox and write cookie data directly to the user's hard drive.
 
 To be implemented someday (perhaps by you?):
 
-- Caching in [HTTP Authentication](http://en.wikipedia.org/wiki/Basic_access_authentication)
+- [HTTP Strict Transport Security](https://sites.google.com/a/chromium.org/dev/Home/chromium-security/client-identification-mechanisms#TOC-Lower-level-protocol-identifiers) Pinning
+- Google Gears
 - Using Java to produce a unique key based off of NIC info
+- Caching in [HTTP Authentication](http://en.wikipedia.org/wiki/Basic_access_authentication)
+- Other methods? Please comment!
 
 The Java persistence mechanisms are developed and maintained by [Gabriel Bauman](http://gabrielbauman.com)
 [over here](https://github.com/gabrielbauman/evercookie-applet).
 
 Backend Server
 --------------
-Some of the storage mechanisms require backend server. This package comes with PHP implementation of etag, cache and png.
-For Node.js version, please visit [node-evercookie](https://github.com/truongsinh/node-evercookie).
-If you port backend server to other languages, please open a pull request!
+Some of the storage mechanisms require a backend server. This package comes with PHP implementation of the etag, cache and png backend servers.
+- For Node.js version, please visit [node-evercookie](https://github.com/truongsinh/node-evercookie).
+- For Django version, please visit [Django Evercookie](https://github.com/gdmka/django_evercookie)
 
 Caveats
 -------
