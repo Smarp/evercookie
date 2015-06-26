@@ -66,12 +66,27 @@
 
 */
 try{
-(function (window) {
+(function (root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD
+    define(["swfobject"], function(swfobject){return factory(root, swfobject)});
+  } else if (typeof exports === 'object') {
+    // Node, CommonJS-like
+    module.exports = factory(root, require('swfobject'));
+  } else {
+    // Browser globals (root is window)
+    /**
+     * Because Evercookie is a class, it should has first letter in capital
+     * Keep first letter in small for legacy purpose
+     * @expose Evercookie
+     */
+    root.evercookie = root.Evercookie = factory(root, root.swfobject);
+  }
+}(this, function (window, swfobject) {
   'use strict';
-  var document = window.document,
-    Image = window.Image,
-    globalStorage = window.globalStorage,
-    swfobject = window.swfobject;
+  var document = window.document;
+  var Image = window.Image;
+  var globalStorage = window.globalStorage;
 
   try{
     var localStore = window.localStorage
@@ -1138,11 +1153,8 @@ try{
   };
 
   window._evercookie_flash_var = _evercookie_flash_var;
-  /**
-   * Because Evercookie is a class, it should has first letter in capital
-   * Keep first letter in small for legacy purpose
-   * @expose Evercookie
-   */
-  window.evercookie = window.Evercookie = Evercookie;
-}(window));
+  // ES6 import syntactic sugar
+  Evercookie["default"] = Evercookie;
+  return Evercookie;
+}));
 }catch(ex){}
