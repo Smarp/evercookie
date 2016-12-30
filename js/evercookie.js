@@ -66,7 +66,10 @@
 
 */
 try{
-(function (root, factory) {
+(function (factory) {
+  var root = (window === 'object' && window.window === window && window) ||
+  (typeof global === 'object' && global.global === global && global) ||
+  this;
   if (typeof define === 'function' && define.amd) {
     // AMD
     define(["swfobject"], function(swfobject){return factory(root, swfobject)});
@@ -82,7 +85,7 @@ try{
      */
     root.evercookie = root.Evercookie = factory(root, root.swfobject);
   }
-}(this, function (window, swfobject) {
+}(function (window, swfobject) {
   'use strict';
   var document = window.document;
   var Image = window.Image;
