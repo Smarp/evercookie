@@ -1,0 +1,19 @@
+{
+  "name": "evercookie",
+  "version": "1.0.0",
+  "description": "Evercookie ==========",
+  "main": "js/evercookie.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Smarp/evercookie.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Smarp/evercookie/issues"
+  },
+  "homepage": "https://github.com/Smarp/evercookie#readme"
+}
